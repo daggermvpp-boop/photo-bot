@@ -64,17 +64,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         prompt = context.user_data.get("prompt", DEFAULT_PROMPT)
 
-        result = await asyncio.to_thread(
-            client.image_to_image,
-            image=img_buf,
-            prompt=prompt,
-            model=HF_MODEL,
-            provider=HF_PROVIDER,
-            parameters={
-                "negative_prompt": "ugly, blurry, deformed, low quality, bad anatomy",
-                "strength": 0.75,
-                "guidance_scale": 7.5,
-            },
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                client.image_to_image,
+                image=img_buf,
+                prompt=prompt,
+                model=HF_MODEL,
+                provider=HF_PROVIDER,
+                timeout=120,
+                parameters={
+                    "negative_prompt": "ugly, blurry, deformed, low quality, bad anatomy",
+                    "strength": 0.75,
+                    "guidance_scale": 7.5,
+                },
+            ),
+            timeout=150,
         )
 
         if isinstance(result, bytes):
