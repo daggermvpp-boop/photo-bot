@@ -281,7 +281,7 @@ async def photo_action_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 client.image_to_image,
                 image=buf, prompt=prompt + ", high quality, detailed",
                 model="runwayml/stable-diffusion-v1-5",
-                provider="hf-inference", timeout=120,
+                timeout=120,
                 parameters={"negative_prompt": "ugly, blurry, low quality, deformed", "strength": 0.8, "guidance_scale": 7.5},
             ), timeout=150)
             if hasattr(result, "read"):
@@ -358,7 +358,6 @@ async def apply_style(update, context, style, is_callback=False):
             image=buf,
             prompt=prompt + ", high quality, detailed",
             model="runwayml/stable-diffusion-v1-5",
-            provider="hf-inference",
             timeout=120,
             parameters={
                 "negative_prompt": "ugly, blurry, low quality, deformed",
@@ -407,7 +406,6 @@ async def generate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             client.text_to_image,
             prompt=prompt,
             model="black-forest-labs/FLUX.1-dev",
-            provider="hf-inference",
             timeout=120,
         ), timeout=150)
 
@@ -458,8 +456,8 @@ async def process_style(update, context, style, uid, img_bytes):
             client.image_to_image,
             image=buf, prompt=prompt + ", high quality, detailed",
             model="runwayml/stable-diffusion-v1-5",
-            provider="hf-inference", timeout=120,
-            parameters={"negative_prompt": "ugly, blurry, low quality, deformed", "strength": 0.8, "guidance_scale": 7.5},
+timeout=120,
+                parameters={"negative_prompt": "ugly, blurry, low quality, deformed", "strength": 0.8, "guidance_scale": 7.5},
         ), timeout=150)
         if hasattr(result, "read"):
             result_img = Image.open(result)
