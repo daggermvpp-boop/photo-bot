@@ -3,11 +3,11 @@ import io
 import asyncio
 import logging
 from PIL import Image
+import requests
 import telegram
 import telegram.request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from huggingface_hub import InferenceClient
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 HF_MODEL = os.environ.get("HF_MODEL", "runwayml/stable-diffusion-v1-5")
-HF_PROVIDER = os.environ.get("HF_PROVIDER", "hf-inference")
 
 DEFAULT_PROMPT = "anime style, sticker, vibrant colors, cute, clean lineart, flat shading"
 
-client = InferenceClient(token=HF_TOKEN)
+HF_API_URL = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+HF_HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -54,32 +54,25 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img = resize_and_crop(img, 512)
+        img = add_white_bg(img)
 
         img_buf = io.BytesIO()
-        img.save(img_buf, format="JPEG")
+        img.save(img_buf, format="JPEG", quality=95)
         img_buf.seek(0)
 
         prompt = context.user_data.get("prompt", DEFAULT_PROMPT)
+        full_prompt = prompt + ", anime style, sticker, kawaii"
+        neg_prompt = "ugly, blurry, deformed, low quality, bad anatomy, realistic, photo"
 
-        result = await asyncio.to_thread(
-            client.image_to_image,
-            image=img_buf,
-            prompt=prompt,
-            model=HF_MODEL,
-            provider=HF_PROVIDER,
-            parameters={
-                "negative_prompt": "ugly, blurry, deformed, low quality, bad anatomy",
-                "strength": 0.75,
-                "guidance_scale": 7.5,
-            },
+        result_bytes = await asyncio.to_thread(
+            query_hf_api, img_buf.getvalue(), full_prompt, neg_prompt
         )
 
-        if hasattr(result, 'read'):
-            result = Image.open(result)
-        elif isinstance(result, bytes):
-            result = Image.open(io.BytesIO(result))
+        if result_bytes is None:
+            await status_msg.edit_text("Model loading, try again in 30s...")
+            return
 
-        result = result.convert("RGBA")
+        result = Image.open(io.BytesIO(result_bytes)).convert("RGBA")
         result = resize_and_crop(result, 512)
 
         sticker_buf = io.BytesIO()
@@ -92,6 +85,41 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.exception("Error handling photo")
         await status_msg.edit_text("Oshibka: " + str(e)[:200])
+
+def query_hf_api(image_bytes, prompt, neg_prompt, retries=3):
+    for attempt in range(retries):
+        resp = requests.post(
+            HF_API_URL,
+            headers=HF_HEADERS,
+            data=image_bytes,
+            params={
+                "prompt": prompt,
+                "negative_prompt": neg_prompt,
+                "strength": 0.75,
+                "guidance_scale": 7.5,
+            },
+            timeout=120,
+        )
+
+        if resp.status_code == 200:
+            return resp.content
+
+        if resp.status_code == 503:
+            import time
+            wait = resp.json().get("estimated_time", 30)
+            logger.info(f"Model loading, waiting {wait}s (attempt {attempt+1})")
+            time.sleep(min(wait, 60))
+            continue
+
+        logger.error(f"API error {resp.status_code}: {resp.text[:200]}")
+        resp.raise_for_status()
+
+    return None
+
+def add_white_bg(img):
+    bg = Image.new("RGB", img.size, (255, 255, 255))
+    bg.paste(img, mask=img.split()[3] if img.mode == "RGBA" else None)
+    return bg
 
 def resize_and_crop(img, size):
     w, h = img.size
