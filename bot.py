@@ -26,27 +26,27 @@ client = InferenceClient(token=HF_TOKEN)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "\U0001f3a8 Anime Sticker Bot\n\n"
-        "Отправь мне фото — я превращу его в аниме-стикер!\n\n"
-        "/prompt <текст> — свой промпт\n"
-        "/default — сбросить на стандартный"
+        "Anime Sticker Bot\n\n"
+        "Otprav mne foto - ya prevrashu ego v anime-stiker!\n\n"
+        "/prompt <text> - svoi prompt\n"
+        "/default - sbrosit na standartny"
     )
 
 async def set_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.replace("/prompt", "", 1).strip()
     if text:
         context.user_data["prompt"] = text
-        await update.message.reply_text(f"\u2705 Промпт установлен: {text}")
+        await update.message.reply_text("Prompt ustanovlen: " + text)
     else:
-        await update.message.reply_text("Напиши промпт после /prompt")
+        await update.message.reply_text("Napishe prompt posle /prompt")
 
 async def reset_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("prompt", None)
-    await update.message.reply_text("\u2705 Промпт сброшен на стандартный")
+    await update.message.reply_text("Prompt sbroshen")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo = update.message.photo[-1]
-    status_msg = await update.message.reply_text("\U0001f504 Генерирую стикер...")
+    status_msg = await update.message.reply_text("Generiruyu stiker...")
 
     try:
         file = await photo.get_file()
@@ -55,11 +55,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img = resize_and_crop(img, 512)
 
+        img_buf = io.BytesIO()
+        img.save(img_buf, format="JPEG")
+        img_buf.seek(0)
+
         prompt = context.user_data.get("prompt", DEFAULT_PROMPT)
 
         result = await asyncio.to_thread(
             client.image_to_image,
-            image=img,
+            image=img_buf,
             prompt=prompt,
             model=HF_MODEL,
             provider=HF_PROVIDER,
@@ -87,7 +91,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.exception("Error handling photo")
-        await status_msg.edit_text(f"\u274c Ошибка: {str(e)[:200]}")
+        await status_msg.edit_text("Oshibka: " + str(e)[:200])
 
 def resize_and_crop(img, size):
     w, h = img.size
