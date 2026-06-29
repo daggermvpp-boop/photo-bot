@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 HF_TOKEN = os.environ.get("HF_TOKEN")
-HF_MODEL = os.environ.get("HF_MODEL", "digiplay/AnimePastelDream")
+HF_MODEL = os.environ.get("HF_MODEL", "runwayml/stable-diffusion-v1-5")
 HF_PROVIDER = os.environ.get("HF_PROVIDER", "hf-inference")
 
 DEFAULT_PROMPT = "anime style, sticker, vibrant colors, cute, clean lineart, flat shading"
@@ -26,7 +26,7 @@ client = InferenceClient(token=HF_TOKEN)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎨 Anime Sticker Bot\n\n"
+        "\U0001f3a8 Anime Sticker Bot\n\n"
         "Отправь мне фото — я превращу его в аниме-стикер!\n\n"
         "/prompt <текст> — свой промпт\n"
         "/default — сбросить на стандартный"
@@ -36,17 +36,17 @@ async def set_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.replace("/prompt", "", 1).strip()
     if text:
         context.user_data["prompt"] = text
-        await update.message.reply_text(f"✅ Промпт установлен: {text}")
+        await update.message.reply_text(f"\u2705 Промпт установлен: {text}")
     else:
         await update.message.reply_text("Напиши промпт после /prompt")
 
 async def reset_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("prompt", None)
-    await update.message.reply_text("✅ Промпт сброшен на стандартный")
+    await update.message.reply_text("\u2705 Промпт сброшен на стандартный")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     photo = update.message.photo[-1]
-    status_msg = await update.message.reply_text("🔄 Генерирую стикер...")
+    status_msg = await update.message.reply_text("\U0001f504 Генерирую стикер...")
 
     try:
         file = await photo.get_file()
@@ -70,7 +70,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             },
         )
 
-        if isinstance(result, bytes):
+        if hasattr(result, 'read'):
+            result = Image.open(result)
+        elif isinstance(result, bytes):
             result = Image.open(io.BytesIO(result))
 
         result = result.convert("RGBA")
@@ -85,7 +87,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.exception("Error handling photo")
-        await status_msg.edit_text(f"❌ Ошибка: {str(e)[:200]}")
+        await status_msg.edit_text(f"\u274c Ошибка: {str(e)[:200]}")
 
 def resize_and_crop(img, size):
     w, h = img.size
@@ -97,7 +99,6 @@ def resize_and_crop(img, size):
     return img
 
 def main():
-    # Use proxy to bypass network restrictions
     request = telegram.request.HTTPXRequest(
         connect_timeout=30,
         read_timeout=30,
