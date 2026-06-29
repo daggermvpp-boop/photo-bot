@@ -4,6 +4,7 @@ import telegram, telegram.request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from huggingface_hub import InferenceClient
+import base64
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -249,7 +250,6 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------- UTILS ----------
 
 def base64_encode(data):
-    import base64
     return base64.b64encode(data).decode()
 
 # ---------- MAIN ----------
